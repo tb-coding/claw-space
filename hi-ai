@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+index="${1:-all}"
+
+# 讀取所有 NAME 進陣列
+names=()
+while IFS= read -r name; do
+  names+=("$name")
+done < <(ollama list | awk 'NR>1 {print $1}')
+
+count="${#names[@]}"
+
+if [ "$index" = "all" ]; then
+  # 無參數：列出所有 + 總數（前面加上 [序號]，補零兩位）
+  for i in "${!names[@]}"; do
+    seq=$((i + 1))
+    printf "[%02d] %s\n" "$seq" "${names[$i]}"
+  done
+  echo "Total NAME count: $count (max index = $count)"
+elif [[ $index =~ ^[0-9]+$ ]]; then
+  # 是數字：取第 N 個
+  idx=$((index - 1))
+  name="${names[$idx]}"
+  if [ -n "$name" ]; then
+    echo "$name"
+    ollama-stop && ollama run "$name" "你的模型名稱?"
+  else
+    echo "Error: index $index out of range (1-$count)"
+  fi
+else
+  # 是字串：完全比對 NAME
+  found=false
+  for name in "${names[@]}"; do
+    if [ "$index" = "$name" ]; then
+      echo "$name"
+      ollama-stop && ollama run "$name" "你的模型名稱?"
+      found=true
+      break
+    fi
+  done
+  if [ "$found" = false ]; then
+    echo "找不到模型名稱: '$index'"
+  fi
+fi
+
